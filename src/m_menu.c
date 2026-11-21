@@ -3179,6 +3179,19 @@ static void M_PrevOpt(void)
 	M_UpdateItemOn();
 }
 
+static bool M_SetOpt(INT16 newItemOn)
+{
+	if (newItemOn <= 0) return false;
+	if (newItemOn > currentMenu->numitems) return false;
+	if ( (currentMenu->menuitems[itemOn].status & IT_TYPE) & IT_SPACE ) return false;
+	if (itemOn == newItemOn) return false;
+
+	itemOn = newItemOn;
+	M_UpdateItemOn();
+
+	return true;
+}
+
 // lock out further input in a tic when important buttons are pressed
 // (in other words -- stop bullshit happening by mashing buttons in fades)
 static boolean noFurtherInput = false;
@@ -3207,23 +3220,36 @@ boolean M_Responder(event_t *ev)
 
 	if (dedicated || (demoplayback && titledemo)
 	|| gamestate == GS_INTRO || gamestate == GS_ENDING || gamestate == GS_CUTSCENE
-	|| gamestate == GS_CREDITS || gamestate == GS_EVALUATION || gamestate == GS_GAMEEND)
+	|| gamestate == GS_CREDITS || gamestate == GS_EVALUATION || gamestate == GS_GAMEEND) {
+		CONS_Printf("nono\n");
 		return false;
+	}
 
-	if (gamestate == GS_TITLESCREEN && finalecount < (cv_tutorialprompt.value ? TICRATE : 0))
+	if (gamestate == GS_TITLESCREEN && finalecount < (cv_tutorialprompt.value ? TICRATE : 0)) {
+		CONS_Printf("titlescreen input\n");
 		return false;
+	}
 
-	if (CON_Ready() && gamestate != GS_WAITINGPLAYERS)
+	if (CON_Ready() && gamestate != GS_WAITINGPLAYERS) {
+		CONS_Printf("input not ready\n");
 		return false;
+	}
 
-	if (noFurtherInput)
+	if (noFurtherInput && ev->type != ev_mouse)
 	{
 		// Ignore input after enter/escape/other buttons
 		// (but still allow shift keyup so caps doesn't get stuck)
+		CONS_Printf("nofurtherinput\n");
 		return false;
 	}
 	else if (menuactive)
 	{
+		if (ev->type == ev_mouse)
+		{
+			CONS_Printf("using mouse in menu\n");
+			CONS_Printf("%d, %d\n", ev->x, ev->y);
+		}
+
 		if (ev->type == ev_keydown || ev->type == ev_text)
 		{
 			ch = ev->key;
