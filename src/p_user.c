@@ -10236,7 +10236,8 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 		if (!resetcalled && ((thiscam == &camera && cv_cam_adjust.value) || (thiscam == &camera2 && cv_cam2_adjust.value)))
 		{
 			if (!(mo->eflags & MFE_JUSTHITFLOOR) && (P_IsObjectOnGround(mo)) // Check that player is grounded
-			&& thiscam->ceilingz - thiscam->floorz >= P_GetPlayerHeight(player)) // Check that camera's sector is large enough for the player to fit into, at least
+			&& thiscam->ceilingz - thiscam->floorz >= P_GetPlayerHeight(player) // Check that camera's sector is large enough for the player to fit into, at least
+			&& thiscam->z >= thiscam->floorz && thiscam->z <= thiscam->ceilingz) // romoney5: if the camera is out of bounds, don't snap
 			{
 				if (mo->eflags & MFE_VERTICALFLIP) // if player is upside-down
 				{
@@ -10560,6 +10561,16 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 		}
 	}*/
 
+	// compute aming to look the viewed point
+	f1 = viewpointx-thiscam->x;
+	f2 = viewpointy-thiscam->y;
+	dist = FixedHypot(f1, f2);
+
+	if (mo->eflags & MFE_VERTICALFLIP)
+		angle = R_PointToAngle2(0, thiscam->z + thiscam->height, dist, (sign ? sign->ceilingz : mo->z + mo->height) - P_GetPlayerHeight(player));
+	else
+		angle = R_PointToAngle2(0, thiscam->z, dist, (sign ? sign->floorz : mo->z) + P_GetPlayerHeight(player));
+
 	if (twodlevel || (mo->flags2 & MF2_TWOD))
 	{
 		thiscam->momx = x-thiscam->x;
@@ -10584,15 +10595,6 @@ boolean P_MoveChaseCamera(player_t *player, camera_t *thiscam, boolean resetcall
 		thiscam->momy += FixedMul(shifty, camspeed);
 	}
 
-	// compute aming to look the viewed point
-	f1 = viewpointx-thiscam->x;
-	f2 = viewpointy-thiscam->y;
-	dist = FixedHypot(f1, f2);
-
-	if (mo->eflags & MFE_VERTICALFLIP)
-		angle = R_PointToAngle2(0, thiscam->z + thiscam->height, dist, (sign ? sign->ceilingz : mo->z + mo->height) - P_GetPlayerHeight(player));
-	else
-		angle = R_PointToAngle2(0, thiscam->z, dist, (sign ? sign->floorz : mo->z) + P_GetPlayerHeight(player));
 	if (player->playerstate != PST_DEAD)
 		angle += (focusaiming < ANGLE_180 ? focusaiming/2 : InvAngle(InvAngle(focusaiming)/2)); // overcomplicated version of '((signed)focusaiming)/2;'
 
