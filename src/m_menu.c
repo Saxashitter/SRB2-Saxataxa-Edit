@@ -504,7 +504,7 @@ static menuitem_t MainMenu[] =
 	{IT_STRING|IT_SUBMENU, NULL, "Multiplayer",  &MP_MainDef,             76},
 	{IT_STRING|IT_CALL,    NULL, "Extras",       M_SecretsMenu,           84},
 	{IT_CALL   |IT_STRING, NULL, "Addons",       M_Addons,                92},
-	{IT_CALL   |IT_STRING, NULL, "Local Addons", M_Addons,               100},
+	{IT_CALL   |IT_STRING, NULL, "Local Addons", M_LocalAddons,          100},
 	{IT_STRING|IT_CALL,    NULL, "Options",      M_Options,              108},
 	{IT_STRING|IT_CALL,    NULL, "Quit  Game",   M_QuitSRB2,             116},
 };
