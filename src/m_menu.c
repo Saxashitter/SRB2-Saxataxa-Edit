@@ -3637,6 +3637,7 @@ void M_Drawer(void)
 		// ... but only in the MAIN MENU.  I'm a picky bastard.
 		if (currentMenu == &MainDef)
 		{
+			patch_t *poyo = W_CachePatchName("POYO_WEGA0", PU_PATCH_LOWPRIORITY);
 			if (customversionstring[0] != '\0')
 			{
 				V_DrawThinString(vid.dup, vid.height - 17*vid.dup, V_NOSCALESTART|V_TRANSLUCENT, "Mod version:");
@@ -3651,6 +3652,7 @@ void M_Drawer(void)
 				V_DrawThinString(vid.dup, vid.height -  9*vid.dup, V_NOSCALESTART|V_TRANSLUCENT|V_ALLOWLOWERCASE, va("%s", VERSIONSTRING));
 #endif
 			}
+			V_DrawFixedPatch(30 << FRACBITS, 186 << FRACBITS, (FRACUNIT / 2), V_SNAPTOBOTTOM|V_SNAPTOLEFT, poyo, NULL);
 		}
 	}
 

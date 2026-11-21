@@ -1201,7 +1201,10 @@ static void IdentifyVersion(void)
 
 	// Load the IWAD
 	if (srb2wad != NULL && FIL_ReadFileOK(srb2wad))
+	{
+		CONS_Printf(srb2wad);
 		D_AddFile(&startupwadfiles, srb2wad);
+	}
 	else
 		I_Error("srb2.pk3 not found! Expected in %s, ss file: %s\n", srb2waddir, srb2wad);
 
@@ -1221,6 +1224,8 @@ static void IdentifyVersion(void)
 	// Add our crappy patches to fix our bugs
 	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "patch.pk3"));
 #endif
+
+	D_AddFile(&startupwadfiles, va(pandf,srb2waddir, "srb2-saxataxa.pk3"));
 
 #if !defined (HAVE_SDL) || defined (HAVE_MIXER)
 	{
