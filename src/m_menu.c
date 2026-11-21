@@ -346,6 +346,7 @@ static void M_SetupScreenshotMenu(void);
 static void M_EraseData(INT32 choice);
 
 static void M_Addons(INT32 choice);
+static void M_LocalAddons(INT32 choice);
 static void M_AddonsOptions(INT32 choice);
 static patch_t *addonsp[NUM_EXT+5];
 
@@ -359,6 +360,7 @@ static void M_DrawGenericMenu(void);
 static void M_DrawGenericScrollMenu(void);
 static void M_DrawCenteredMenu(void);
 static void M_DrawAddons(void);
+static void M_DrawLocalAddons(void);
 static void M_DrawChecklist(void);
 static void M_DrawSoundTest(void);
 static void M_DrawEmblemHints(void);
@@ -392,6 +394,7 @@ static void M_DrawColorRamp(INT32 x, INT32 y, INT32 w, INT32 h, skincolor_t colo
 static boolean M_ExitPandorasBox(void);
 static boolean M_QuitMultiPlayerMenu(void);
 static void M_HandleAddons(INT32 choice);
+static void M_HandleLocalAddons(INT32 choice);
 static void M_HandleLevelPlatter(INT32 choice);
 static void M_HandleSoundTest(INT32 choice);
 static void M_HandleImageDef(INT32 choice);
@@ -497,12 +500,13 @@ consvar_t cv_dummyloadless = CVAR_INIT ("dummyloadless", "In-game", CV_HIDEN, lo
 // ---------
 static menuitem_t MainMenu[] =
 {
-	{IT_STRING|IT_CALL,    NULL, "1  Player",   M_SinglePlayerMenu,      76},
-	{IT_STRING|IT_SUBMENU, NULL, "Multiplayer", &MP_MainDef,             84},
-	{IT_STRING|IT_CALL,    NULL, "Extras",      M_SecretsMenu,           92},
-	{IT_CALL   |IT_STRING, NULL, "Addons",      M_Addons,               100},
-	{IT_STRING|IT_CALL,    NULL, "Options",     M_Options,              108},
-	{IT_STRING|IT_CALL,    NULL, "Quit  Game",  M_QuitSRB2,             116},
+	{IT_STRING|IT_CALL,    NULL, "1  Player",    M_SinglePlayerMenu,      68},
+	{IT_STRING|IT_SUBMENU, NULL, "Multiplayer",  &MP_MainDef,             76},
+	{IT_STRING|IT_CALL,    NULL, "Extras",       M_SecretsMenu,           84},
+	{IT_CALL   |IT_STRING, NULL, "Addons",       M_Addons,                92},
+	{IT_CALL   |IT_STRING, NULL, "Local Addons", M_Addons,               100},
+	{IT_STRING|IT_CALL,    NULL, "Options",      M_Options,              108},
+	{IT_STRING|IT_CALL,    NULL, "Quit  Game",   M_QuitSRB2,             116},
 };
 
 typedef enum
@@ -511,6 +515,7 @@ typedef enum
 	multiplr,
 	secrets,
 	addons,
+	localaddons,
 	options,
 	quitdoom
 } main_e;
@@ -518,6 +523,10 @@ typedef enum
 static menuitem_t MISC_AddonsMenu[] =
 {
 	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleAddons, 0},     // dummy menuitem for the control func
+};
+static menuitem_t MISC_LocalAddonsMenu[] =
+{
+	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleLocalAddons, 0},     // dummy menuitem for the control func
 };
 
 // ---------------------------------
@@ -545,7 +554,9 @@ typedef enum
 // ---------------------
 static menuitem_t MPauseMenu[] =
 {
+	{IT_STRING | IT_CALL,    NULL, "Local Add-ons...",          M_LocalAddons,          8},
 	{IT_STRING | IT_CALL,    NULL, "Add-ons...",                M_Addons,               8},
+
 	{IT_STRING | IT_SUBMENU, NULL, "Scramble Teams...",         &MISC_ScrambleTeamDef, 16},
 	{IT_STRING | IT_CALL,    NULL, "Emblem Hints...",           M_EmblemHints,         24},
 	{IT_STRING | IT_CALL,    NULL, "Switch Gametype/Level...",  M_MapChange,           32},
@@ -568,7 +579,8 @@ static menuitem_t MPauseMenu[] =
 
 typedef enum
 {
-	mpause_addons = 0,
+	mpause_localaddons = 0,
+	mpause_addons,
 	mpause_scramble,
 	mpause_hints,
 	mpause_switchmap,
@@ -1668,6 +1680,20 @@ menu_t MISC_AddonsDef =
 	0,
 	NULL
 };
+
+menu_t MISC_LocalAddonsDef =
+{
+	MN_AD_MAIN,
+	NULL,
+	sizeof (MISC_LocalAddonsMenu)/sizeof (menuitem_t),
+	&MainDef,
+	MISC_LocalAddonsMenu,
+	M_DrawLocalAddons,
+	50, 28,
+	0,
+	NULL
+};
+
 
 menu_t MAPauseDef = PAUSEMENUSTYLE(MAPauseMenu, 40, 72);
 menu_t SPauseDef = PAUSEMENUSTYLE(SPauseMenu, 40, 72);
@@ -3663,8 +3689,8 @@ void M_StartControlPanel(void)
 	if (!Playing())
 	{
 		// Secret menu!
-		MainMenu[singleplr].alphaKey = (M_AnySecretUnlocked(clientGamedata)) ? 76 : 84;
-		MainMenu[multiplr].alphaKey = (M_AnySecretUnlocked(clientGamedata)) ? 84 : 92;
+		MainMenu[singleplr].alphaKey = (M_AnySecretUnlocked(clientGamedata)) ? 68 : 76;
+		MainMenu[multiplr].alphaKey = (M_AnySecretUnlocked(clientGamedata)) ? 76 : 84;
 		MainMenu[secrets].status = (M_AnySecretUnlocked(clientGamedata)) ? (IT_STRING | IT_CALL) : (IT_DISABLED);
 
 		currentMenu = &MainDef;
@@ -3729,7 +3755,9 @@ void M_StartControlPanel(void)
 	}
 	else // multiplayer
 	{
+		MPauseMenu[mpause_localaddons].status = IT_DISABLED;
 		MPauseMenu[mpause_switchmap].status = IT_DISABLED;
+		MPauseMenu[mpause_localaddons].status = IT_DISABLED;
 		MPauseMenu[mpause_addons].status = IT_DISABLED;
 		MPauseMenu[mpause_scramble].status = IT_DISABLED;
 		MPauseMenu[mpause_psetupsplit].status = IT_DISABLED;
@@ -3744,7 +3772,11 @@ void M_StartControlPanel(void)
 			MPauseMenu[mpause_switchmap].status = IT_STRING | IT_CALL;
 			MPauseMenu[mpause_addons].status = IT_STRING | IT_CALL;
 			if (G_GametypeHasTeams())
-				MPauseMenu[mpause_scramble].status = IT_STRING | IT_SUBMENU;
+			MPauseMenu[mpause_scramble].status = IT_STRING | IT_SUBMENU;
+		}
+		else
+		{
+			MPauseMenu[mpause_localaddons].status = IT_STRING | IT_CALL;
 		}
 
 		if (splitscreen)
@@ -3764,7 +3796,7 @@ void M_StartControlPanel(void)
 		}
 
 		MPauseMenu[mpause_hints].status = (M_SecretUnlocked(SECRET_EMBLEMHINTS, clientGamedata) && G_CoopGametype()) ? (IT_STRING | IT_CALL) : (IT_DISABLED);
-
+	
 		currentMenu = &MPauseDef;
 		itemOn = mpause_continue;
 		M_UpdateItemOn();
@@ -6321,6 +6353,55 @@ static void M_Addons(INT32 choice)
 	M_SetupNextMenu(&MISC_AddonsDef);
 }
 
+static void M_LocalAddons(INT32 choice)
+{
+	const char *pathname = ".";
+
+	(void)choice;
+
+	// If M_GetGameypeColor() is ever ported from Kart, then remove this.
+	highlightflags = V_YELLOWMAP;
+	recommendedflags = V_GREENMAP;
+	warningflags = V_REDMAP;
+
+#if 1
+	if (cv_addons_option.value == 0)
+		pathname = usehome ? srb2home : srb2path;
+	else if (cv_addons_option.value == 1)
+		pathname = srb2home;
+	else if (cv_addons_option.value == 2)
+		pathname = srb2path;
+	else
+#endif
+	if (cv_addons_option.value == 3 && *cv_addons_folder.string != '\0')
+		pathname = cv_addons_folder.string;
+
+	strlcpy(menupath, pathname, 1024);
+	menupathindex[(menudepthleft = menudepth-1)] = strlen(menupath) + 1;
+
+	if (menupath[menupathindex[menudepthleft]-2] != PATHSEP[0])
+	{
+		menupath[menupathindex[menudepthleft]-1] = PATHSEP[0];
+		menupath[menupathindex[menudepthleft]] = 0;
+	}
+	else
+		--menupathindex[menudepthleft];
+
+	if (!preparefilemenu(false))
+	{
+		M_StartMessage(va("No files/folders found.\n\n%s\n\n(Press a key)\n",LOCATIONSTRING1),NULL,MM_NOTHING);
+			// (recommendedflags == V_SKYMAP ? LOCATIONSTRING2 : LOCATIONSTRING1))
+		return;
+	}
+	else
+		dir_on[menudepthleft] = 0;
+
+	M_LoadAddonsPatches();
+
+	MISC_LocalAddonsDef.prevMenu = currentMenu;
+	M_SetupNextMenu(&MISC_LocalAddonsDef);
+}
+
 #ifdef ENFORCE_WAD_LIMIT
 #define width 4
 #define vpadding 27
@@ -6440,6 +6521,164 @@ static boolean M_AddonsRefresh(void)
 	}
 
 	return false;
+}
+
+static void M_DrawLocalAddons(void)
+{
+	INT32 x, y;
+	size_t i, m;
+	size_t t, b; // top and bottom item #s to draw in directory
+	const UINT8 *flashcol = NULL;
+	UINT8 hilicol;
+
+	// hack - need to refresh at end of frame to handle addfile...
+	if (refreshdirmenu & M_AddonsRefresh())
+	{
+		M_DrawMessageMenu();
+		return;
+	}
+
+	V_DrawCenteredString(BASEVIDWIDTH/2, 5, warningflags, "Adding files locally may cause problems.");
+			// (recommendedflags == V_SKYMAP ? LOCATIONSTRING2 : LOCATIONSTRING1)
+
+#ifdef ENFORCE_WAD_LIMIT
+	if (numwadfiles <= mainwads+1)
+		y = 0;
+	else if (numwadfiles >= MAX_WADFILES)
+		y = FRACUNIT;
+	else
+	{
+		y = FixedDiv(((ssize_t)(numwadfiles) - (ssize_t)(mainwads+1))<<FRACBITS, ((ssize_t)MAX_WADFILES - (ssize_t)(mainwads+1))<<FRACBITS);
+		if (y > FRACUNIT) // happens because of how we're shrinkin' it a little
+			y = FRACUNIT;
+	}
+
+	M_DrawTemperature(BASEVIDWIDTH - 19 - 5, y);
+#endif
+
+	// DRAW MENU
+	x = currentMenu->x;
+	y = currentMenu->y + 1;
+
+	hilicol = 0; // white
+
+#define boxwidth (MAXSTRINGLENGTH*8+6)
+
+	// draw the file path and the top white + black lines of the box
+	V_DrawString(x-21, (y - 16) + (lsheadingheight - 12), highlightflags|V_ALLOWLOWERCASE, M_AddonsHeaderPath());
+	V_DrawFill(x-21, (y - 16) + (lsheadingheight - 3), boxwidth, 1, hilicol);
+	V_DrawFill(x-21, (y - 16) + (lsheadingheight - 2), boxwidth, 1, 30);
+
+	m = (BASEVIDHEIGHT - currentMenu->y + 2) - (y - 1);
+	// addons menu back color
+	V_DrawFill(x-21, y - 1, boxwidth, m, 159);
+
+	// The directory is too small for a scrollbar, so just draw a tall white line
+	if (sizedirmenu <= addonmenusize)
+	{
+		t = 0; // first item
+		b = sizedirmenu - 1; // last item
+		i = 0; // "scrollbar" at "top" position
+	}
+	else
+	{
+		size_t q = m;
+		m = (addonmenusize * m)/sizedirmenu; // height of scroll bar
+		if (dir_on[menudepthleft] <= numaddonsshown) // all the way up
+		{
+			t = 0; // first item
+			b = addonmenusize - 1; //9th item
+			i = 0; // scrollbar at top position
+		}
+		else if (dir_on[menudepthleft] >= sizedirmenu - (numaddonsshown + 1)) // all the way down
+		{
+			t = sizedirmenu - addonmenusize; // # 9th last
+			b = sizedirmenu - 1; // last item
+			i = q-m; // scrollbar at bottom position
+		}
+		else // somewhere in the middle
+		{
+			t = dir_on[menudepthleft] - numaddonsshown; // 4 items above
+			b = dir_on[menudepthleft] + numaddonsshown; // 4 items below
+			i = (t * (q-m))/(sizedirmenu - addonmenusize); // calculate position of scrollbar
+		}
+	}
+
+	// draw the scrollbar!
+	V_DrawFill((x-21) + boxwidth-1, (y - 1) + i, 1, m, hilicol);
+
+#undef boxwidth
+
+	// draw up arrow that bobs up and down
+	if (t != 0)
+		V_DrawString(19, y+4 - (skullAnimCounter/5), highlightflags, "\x1A");
+
+	// make the selection box flash yellow
+	if (skullAnimCounter < 4)
+		flashcol = V_GetStringColormap(highlightflags);
+
+	// draw icons and item names
+	for (i = t; i <= b; i++)
+	{
+		UINT32 flags = V_ALLOWLOWERCASE;
+		if (y > BASEVIDHEIGHT) break;
+		if (dirmenu[i])
+#define type (UINT8)(dirmenu[i][DIR_TYPE])
+		{
+			if (type & EXT_LOADED)
+			{
+				flags |= V_TRANSLUCENT;
+				V_DrawSmallScaledPatch(x-(16+4), y, V_TRANSLUCENT, addonsp[(type & ~EXT_LOADED)]);
+				V_DrawSmallScaledPatch(x-(16+4), y, 0, addonsp[NUM_EXT+2]);
+			}
+			else
+				V_DrawSmallScaledPatch(x-(16+4), y, 0, addonsp[(type & ~EXT_LOADED)]);
+
+			// draw selection box for the item currently selected
+			if ((size_t)i == dir_on[menudepthleft])
+			{
+				V_DrawFixedPatch((x-(16+4))<<FRACBITS, (y)<<FRACBITS, FRACUNIT/2, 0, addonsp[NUM_EXT+1], flashcol);
+				flags = V_ALLOWLOWERCASE|highlightflags;
+			}
+
+			// draw name of the item, use ... if too long
+#define charsonside 14
+			if (dirmenu[i][DIR_LEN] > (charsonside*2 + 3))
+				V_DrawString(x, y+4, flags, va("%.*s...%s", charsonside, dirmenu[i]+DIR_STRING, dirmenu[i]+DIR_STRING+dirmenu[i][DIR_LEN]-(charsonside+1)));
+#undef charsonside
+			else
+				V_DrawString(x, y+4, flags, dirmenu[i]+DIR_STRING);
+		}
+#undef type
+		y += 16;
+	}
+
+	// draw down arrow that bobs down and up
+	if (b != sizedirmenu - 1)
+		V_DrawString(19, y-12 + (skullAnimCounter/5), highlightflags, "\x1B");
+
+	// draw search box
+	y = BASEVIDHEIGHT - currentMenu->y + 1;
+
+	M_DrawTextBox(x - (21 + 5), y, MAXSTRINGLENGTH, 1);
+	if (menusearch[0])
+		V_DrawString(x - 18, y + 8, V_ALLOWLOWERCASE, menusearch+1);
+	else
+		V_DrawString(x - 18, y + 8, V_ALLOWLOWERCASE|V_TRANSLUCENT, "Type to search...");
+	if (skullAnimCounter < 4)
+		V_DrawCharacter(x - 18 + V_StringWidth(menusearch+1, 0), y + 8,
+			'_' | 0x80, false);
+
+	// draw search icon
+	x -= (21 + 5 + 16);
+	V_DrawSmallScaledPatch(x, y + 4, (menusearch[0] ? 0 : V_TRANSLUCENT), addonsp[NUM_EXT+3]);
+
+	// draw save icon
+	x = BASEVIDWIDTH - x - 16;
+	V_DrawSmallScaledPatch(x, y + 4, (!usedCheats ? 0 : V_TRANSLUCENT), addonsp[NUM_EXT+4]);
+
+	if (modifiedgame)
+		V_DrawSmallScaledPatch(x, y + 4, 0, addonsp[NUM_EXT+2]);
 }
 
 static void M_DrawAddons(void)
@@ -6767,6 +7006,156 @@ static void M_HandleAddons(INT32 choice)
 #endif
 						case EXT_PK3:
 							COM_BufAddText(va("addfile \"%s%s\"", menupath, dirmenu[dir_on[menudepthleft]]+DIR_STRING));
+							break;
+						default:
+							S_StartSound(NULL, sfx_lose);
+					}
+				}
+				if (refresh)
+					refreshdirmenu |= REFRESHDIR_NORMAL;
+			}
+			break;
+
+		case KEY_ESCAPE:
+			exitmenu = true;
+			break;
+
+		default:
+			break;
+	}
+	if (exitmenu)
+	{
+		closefilemenu(true);
+
+		// secrets disabled by addfile...
+		MainMenu[secrets].status = (M_AnySecretUnlocked(clientGamedata)) ? (IT_STRING | IT_CALL) : (IT_DISABLED);
+
+		if (currentMenu->prevMenu)
+			M_SetupNextMenu(currentMenu->prevMenu);
+		else
+			M_ClearMenus(true);
+	}
+}
+
+// TODO: find a way to make this menu without copy-pasting
+// this looks like fucking shit
+static void M_HandleLocalAddons(INT32 choice)
+{
+	boolean exitmenu = false; // exit to previous menu
+
+	if (M_ChangeStringAddons(choice))
+	{
+		char *tempname = NULL;
+		if (dirmenu && dirmenu[dir_on[menudepthleft]])
+			tempname = Z_StrDup(dirmenu[dir_on[menudepthleft]]+DIR_STRING); // don't need to I_Error if can't make - not important, just QoL
+#if 0 // much slower
+		if (!preparefilemenu(true))
+		{
+			UNEXIST;
+			return;
+		}
+#else // streamlined
+		searchfilemenu(tempname);
+#endif
+	}
+
+	switch (choice)
+	{
+		case KEY_DOWNARROW:
+			if (dir_on[menudepthleft] < sizedirmenu-1)
+				dir_on[menudepthleft]++;
+			else if (dir_on[menudepthleft] == sizedirmenu-1)
+				dir_on[menudepthleft] = 0;
+			S_StartSound(NULL, sfx_menu1);
+			break;
+		case KEY_UPARROW:
+			if (dir_on[menudepthleft])
+				dir_on[menudepthleft]--;
+			else if (!dir_on[menudepthleft])
+				dir_on[menudepthleft] = sizedirmenu-1;
+			S_StartSound(NULL, sfx_menu1);
+			break;
+		case KEY_PGDN:
+			{
+				UINT8 i;
+				for (i = numaddonsshown; i && (dir_on[menudepthleft] < sizedirmenu-1); i--)
+					dir_on[menudepthleft]++;
+			}
+			S_StartSound(NULL, sfx_menu1);
+			break;
+		case KEY_PGUP:
+			{
+				UINT8 i;
+				for (i = numaddonsshown; i && (dir_on[menudepthleft]); i--)
+					dir_on[menudepthleft]--;
+			}
+			S_StartSound(NULL, sfx_menu1);
+			break;
+		case KEY_ENTER:
+			{
+				boolean refresh = true;
+				if (!dirmenu[dir_on[menudepthleft]])
+					S_StartSound(NULL, sfx_lose);
+				else
+				{
+					switch (dirmenu[dir_on[menudepthleft]][DIR_TYPE])
+					{
+						case EXT_FOLDER:
+							strcpy(&menupath[menupathindex[menudepthleft]],dirmenu[dir_on[menudepthleft]]+DIR_STRING);
+							if (menudepthleft)
+							{
+								menupathindex[--menudepthleft] = strlen(menupath);
+								menupath[menupathindex[menudepthleft]] = 0;
+
+								if (!preparefilemenu(false))
+								{
+									S_StartSound(NULL, sfx_skid);
+									M_StartMessage(va("%c%s\x80\nThis folder is empty.\n\n(Press a key)\n", ('\x80' + (highlightflags>>V_CHARCOLORSHIFT)), M_AddonsHeaderPath()),NULL,MM_NOTHING);
+									menupath[menupathindex[++menudepthleft]] = 0;
+
+									if (!preparefilemenu(true))
+									{
+										UNEXIST;
+										return;
+									}
+								}
+								else
+								{
+									S_StartSound(NULL, sfx_menu1);
+									dir_on[menudepthleft] = 1;
+								}
+								refresh = false;
+							}
+							else
+							{
+								S_StartSound(NULL, sfx_lose);
+								M_StartMessage(va("%c%s\x80\nThis folder is too deep to navigate to!\n\n(Press a key)\n", ('\x80' + (highlightflags>>V_CHARCOLORSHIFT)), M_AddonsHeaderPath()),NULL,MM_NOTHING);
+								menupath[menupathindex[menudepthleft]] = 0;
+							}
+							break;
+						case EXT_UP:
+							S_StartSound(NULL, sfx_menu1);
+							menupath[menupathindex[++menudepthleft]] = 0;
+							if (!preparefilemenu(false))
+							{
+								UNEXIST;
+								return;
+							}
+							break;
+						case EXT_TXT:
+							M_StartMessage(va("%c%s\x80\nThis file may not be a console script.\nAttempt to run anyways? \n\n(Press 'Y' to confirm)\n", ('\x80' + (highlightflags>>V_CHARCOLORSHIFT)), dirmenu[dir_on[menudepthleft]]+DIR_STRING),M_AddonExec,MM_YESNO);
+							break;
+						case EXT_CFG:
+							M_AddonExec(KEY_ENTER);
+							break;
+						case EXT_LUA:
+						case EXT_SOC:
+						case EXT_WAD:
+#ifdef USE_KART
+						case EXT_KART:
+#endif
+						case EXT_PK3:
+							COM_BufAddText(va("addfilelocal \"%s%s\"", menupath, dirmenu[dir_on[menudepthleft]]+DIR_STRING));
 							break;
 						default:
 							S_StartSound(NULL, sfx_lose);
