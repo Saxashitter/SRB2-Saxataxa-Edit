@@ -1225,8 +1225,8 @@ static menuitem_t OP_Camera2OptionsMenu[] =
 	{IT_STRING  | IT_CVAR, NULL, "Crosshair", &cv_crosshair2, 66},
 
 	{IT_HEADER,            NULL, "Saxataxa", NULL, 75},
-	{IT_STRING  | IT_CVAR, NULL, "Exact Camera Positioning...", &cv_cam_exact, 81},
-	{IT_STRING  | IT_CVAR, NULL, "Camera Clipping Style...", &cv_cam_clipping, 86},
+	{IT_STRING  | IT_CVAR, NULL, "Exact Camera Positioning...", &cv_cam2_exact, 81},
+	{IT_STRING  | IT_CVAR, NULL, "Camera Clipping Style...", &cv_cam2_clipping, 86},
 };
 
 static menuitem_t OP_CameraExtendedOptionsMenu[] =
