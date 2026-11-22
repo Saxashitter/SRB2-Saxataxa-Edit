@@ -50,6 +50,7 @@
 #endif
 
 #include "lua_hud.h"
+#include "lua_libs.h"
 #include "lua_hudlib_drawlist.h"
 #include "lua_hook.h"
 
@@ -1637,6 +1638,9 @@ static inline void HU_DrawCrosshairs(void)
 	if (automapactive || demoplayback)
 		return;
 
+	if (LUA_HudReplace(hud_crosshair))
+		return;
+
 	stplyr = ((stplyr == &players[displayplayer]) ? &players[secondarydisplayplayer] : &players[displayplayer]);
 	if (!players[displayplayer].spectator && (!camera.chase || ticcmd_ztargetfocus[0]) && cross1)
 		V_DrawStretchyFixedPatch((BASEVIDWIDTH/2)<<FRACBITS, (BASEVIDHEIGHT/2)<<FRACBITS, FRACUNIT, splitscreen ? 2*FRACUNIT : FRACUNIT, V_TRANSLUCENT|V_PERPLAYER, crosshair[cross1 - 1], NULL);
@@ -2535,6 +2539,9 @@ static void HU_DrawRankings(void)
 	boolean completed[MAXPLAYERS];
 	UINT32 whiteplayer;
 
+	if (LUA_HudReplace(hud_rankings))
+		return;
+
 	// draw the current gametype in the lower right
 	if (gametype >= 0 && gametype < gametypecount)
 		V_DrawString(4, splitscreen ? 184 : 192, 0, Gametype_Names[gametype]);
@@ -2667,19 +2674,22 @@ static void HU_DrawRankings(void)
 
 static void HU_DrawCoopOverlay(void)
 {
-	if (token && LUA_HudEnabled(hud_tokens))
+	if (token && LUA_HudEnabled(hud_tokens) && !LUA_HudReplace(hud_tokens))
 	{
 		V_DrawString(168, 176, 0, va("- %d", token));
 		V_DrawSmallScaledPatch(148, 172, 0, tokenicon);
 	}
 
-	if (LUA_HudEnabled(hud_tabemblems))
+	if (LUA_HudEnabled(hud_tabemblems) && !LUA_HudReplace(hud_tabemblems))
 	{
 		V_DrawString(160, 144, 0, va("- %d/%d", M_CountEmblems(clientGamedata), numemblems+numextraemblems));
 		V_DrawScaledPatch(128, 144 - emblemicon->height/4, 0, emblemicon);
 	}
 
 	if (!LUA_HudEnabled(hud_coopemeralds))
+		return;
+
+	if (LUA_HudReplace(hud_coopemeralds))
 		return;
 
 	if (emeralds & EMERALD1)
@@ -2702,13 +2712,13 @@ static void HU_DrawNetplayCoopOverlay(void)
 {
 	int i;
 
-	if (token && LUA_HudEnabled(hud_tokens))
+	if (token && LUA_HudEnabled(hud_tokens) && !LUA_HudReplace(hud_tokens))
 	{
 		V_DrawString(168, 10, 0, va("- %d", token));
 		V_DrawSmallScaledPatch(148, 6, 0, tokenicon);
 	}
 
-	if (G_CoopGametype() && LUA_HudEnabled(hud_tabemblems))
+	if (G_CoopGametype() && LUA_HudEnabled(hud_tabemblems) && !LUA_HudReplace(hud_tabemblems))
 	{
 		V_DrawCenteredString(256, 14, 0, "/");
 		V_DrawString(256 + 4, 14, 0, va("%d", numemblems + numextraemblems));
@@ -2718,6 +2728,9 @@ static void HU_DrawNetplayCoopOverlay(void)
 	}
 
 	if (!LUA_HudEnabled(hud_coopemeralds))
+		return;
+
+	if (LUA_HudReplace(hud_coopemeralds))
 		return;
 
 	for (i = 0; i < 7; ++i)

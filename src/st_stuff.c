@@ -656,6 +656,9 @@ static void ST_drawScore(void)
 	if (F_GetPromptHideHud(hudinfo[HUD_SCORE].y))
 		return;
 
+	if (LUA_HudReplace(hud_score))
+		return;
+
 	// SCORE:
 	ST_DrawPatchFromHud(HUD_SCORE, sboscore, V_HUDTRANS);
 	if (objectplacing)
@@ -706,6 +709,9 @@ static void ST_drawTime(void)
 {
 	INT32 seconds, minutes, tictrn, tics;
 	boolean downwards = false;
+
+	if (LUA_HudReplace(hud_time))
+		return;
 
 	if (objectplacing)
 	{
@@ -798,34 +804,10 @@ static inline void ST_drawRings(void)
 {
 	INT32 ringnum;
 
-	if (LUA_HudReplaced(hud_rings))
-	{
-		lua_State *L = gL;
-		boolean replaced;
-
-		lua_getref(L, hud_replace_refs[hud_rings]);
-		LUA_SetHudHook(HUD_HOOK(game), NULL);
-		lua_pop(L, 2);
-
-		hud_running = true;
-		if (lua_pcall(L, 1, 1, 0) == 0)
-		{
-			replaced = lua_toboolean(L, -1);
-			lua_pop(L, 1);
-			hud_running = false;
-	
-			if (replaced)
-				return;
-		}
-		else
-		{
-			CONS_Alert(CONS_WARNING, "%s\n", lua_tostring(L, -1));
-			lua_pop(L, 1);
-			hud_running = false;
-		}
-	}
-
 	if (F_GetPromptHideHud(hudinfo[HUD_RINGS].y))
+		return;
+
+	if (LUA_HudReplace(hud_rings))
 		return;
 
 	ST_DrawPatchFromHud(HUD_RINGS, ((!stplyr->spectator && stplyr->rings <= 0 && leveltime/5 & 1) ? sboredrings : sborings), ((stplyr->spectator) ? V_HUDTRANSHALF : V_HUDTRANS));
@@ -852,6 +834,9 @@ static void ST_drawLivesArea(void)
 		return; // Just joined a server, skin isn't loaded yet!
 
 	if (F_GetPromptHideHud(hudinfo[HUD_LIVES].y))
+		return;
+
+	if (LUA_HudReplace(hud_lives))
 		return;
 
 	// face background
@@ -1038,7 +1023,8 @@ static void ST_drawLivesArea(void)
 		V_DrawThinString(hudinfo[HUD_LIVES].x+18, hudinfo[HUD_LIVES].y, v_colmap, skins[stplyr->skin]->hudname);
 
 	// Power Stones collected
-	if (G_RingSlingerGametype() && LUA_HudEnabled(hud_powerstones))
+	if (G_RingSlingerGametype() && LUA_HudEnabled(hud_powerstones)
+	&& !LUA_HudReplace(hud_powerstones))
 	{
 		INT32 workx = hudinfo[HUD_LIVES].x+1, j;
 		if ((leveltime & 1) && stplyr->powers[pw_invulnerability] && (stplyr->powers[pw_sneakers] == stplyr->powers[pw_invulnerability])) // hack; extremely unlikely to be activated unintentionally
@@ -1063,6 +1049,9 @@ static void ST_drawLivesArea(void)
 
 static void ST_drawInput(void)
 {
+	if (!LUA_HudEnabled(hud_input) || LUA_HudReplace(hud_input))
+		return;
+
 	UINT16 color = P_GetPlayerColor(stplyr);
 	const INT32 accent = V_SNAPTOLEFT|V_SNAPTOBOTTOM|(color ? skincolors[color].ramp[4] : 0);
 	INT32 col;
@@ -1422,6 +1411,9 @@ void ST_drawTitleCard(void)
 	if (!LUA_HudEnabled(hud_stagetitle))
 		goto luahook;
 
+	if (LUA_HudReplace(hud_stagetitle))
+		goto luahook;
+
 	if (lt_ticker >= (lt_endtime + TICRATE))
 		goto luahook;
 
@@ -1538,6 +1530,9 @@ static void ST_drawPowerupHUD(void)
 		return;
 
 	if (stplyr->spectator || stplyr->playerstate != PST_LIVE)
+		return;
+
+	if (LUA_HudReplace(hud_powerups))
 		return;
 
 // ---------
@@ -1892,7 +1887,7 @@ static void ST_drawNiGHTSHUD(void)
 	const boolean oldspecialstage = (G_IsSpecialStage(gamemap) && !(maptol & TOL_NIGHTS));
 
 	// Drill meter
-	if (LUA_HudEnabled(hud_nightsdrill) && stplyr->powers[pw_carry] == CR_NIGHTSMODE)
+	if (LUA_HudEnabled(hud_nightsdrill) && stplyr->powers[pw_carry] == CR_NIGHTSMODE && !LUA_HudReplace(hud_nightsdrill))
 	{
 		INT32 locx = 16, locy = 180;
 		INT32 dfill;
@@ -1937,8 +1932,8 @@ static void ST_drawNiGHTSHUD(void)
 	// Don't display when the score is showing (it popping up for a split second when exiting a map is intentional)
 	&& !(stplyr->texttimer && stplyr->textvar == NTV_BONUSTIMEEND)
 	&& LUA_HudEnabled(hud_nightslink)
-	&& ((cv_debug & DBG_NIGHTSBASIC) || stplyr->linkcount > 1)) // When debugging, show "0 Link".
-	{
+	&& ((cv_debug & DBG_NIGHTSBASIC) || stplyr->linkcount > 1) // When debugging, show "0 Link".
+	&& !LUA_HudReplace(hud_nightslink)) {
 		ST_drawNiGHTSLink();
 	}
 
@@ -1950,154 +1945,154 @@ static void ST_drawNiGHTSHUD(void)
 	}
 
 	// Begin drawing brackets/chip display
-	if (LUA_HudEnabled(hud_nightsspheres))
+	if (LUA_HudEnabled(hud_nightsspheres) && !LUA_HudReplace(hud_nightsspheres))
 	{
-	ST_DrawTopLeftOverlayPatch(16, 8, nbracket);
-	if (G_IsSpecialStage(gamemap))
-		ST_DrawTopLeftOverlayPatch(24, 16, (
-			(stplyr->bonustime && (leveltime & 4) && (states[S_BLUESPHEREBONUS].frame & FF_ANIMATE)) ? nssbon : nsshud));
-	else
-		ST_DrawTopLeftOverlayPatch(24, 16, *(((stplyr->bonustime) ? nbon : nhud)+((leveltime/2)%12)));
+		ST_DrawTopLeftOverlayPatch(16, 8, nbracket);
+		if (G_IsSpecialStage(gamemap))
+			ST_DrawTopLeftOverlayPatch(24, 16, (
+				(stplyr->bonustime && (leveltime & 4) && (states[S_BLUESPHEREBONUS].frame & FF_ANIMATE)) ? nssbon : nsshud));
+		else
+			ST_DrawTopLeftOverlayPatch(24, 16, *(((stplyr->bonustime) ? nbon : nhud)+((leveltime/2)%12)));
 
-	if (G_IsSpecialStage(gamemap))
-	{
-		INT32 i;
-		total_spherecount = total_ringcount = 0;
-		for (i = 0; i < MAXPLAYERS; i++)
+		if (G_IsSpecialStage(gamemap))
 		{
-			if (!playeringame[i])
-				continue;
-			total_spherecount += players[i].spheres;
-			total_ringcount += players[i].rings;
-		}
-	}
-	else
-	{
-		total_spherecount = stplyr->spheres;
-		total_ringcount = stplyr->spheres;
-	}
-
-	if (!P_MobjWasRemoved(stplyr->capsule))
-	{
-		INT32 amount;
-		const INT32 length = 88;
-
-		origamount = stplyr->capsule->spawnpoint->args[1];
-		I_Assert(origamount > 0); // should not happen now
-
-		ST_DrawTopLeftOverlayPatch(72, 8, nbracket);
-		ST_DrawTopLeftOverlayPatch(74, 8 + 4, minicaps);
-
-		if (stplyr->capsule->reactiontime != 0)
-		{
-			INT32 r;
-			const INT32 orblength = 20;
-
-			for (r = 0; r < 5; r++)
+			INT32 i;
+			total_spherecount = total_ringcount = 0;
+			for (i = 0; i < MAXPLAYERS; i++)
 			{
-				V_DrawScaledPatch(230 - (7*r), 144, V_PERPLAYER|V_HUDTRANS, redstat);
-				V_DrawScaledPatch(188 - (7*r), 144, V_PERPLAYER|V_HUDTRANS, orngstat);
-				V_DrawScaledPatch(146 - (7*r), 144, V_PERPLAYER|V_HUDTRANS, yelstat);
-				V_DrawScaledPatch(104 - (7*r), 144, V_PERPLAYER|V_HUDTRANS, byelstat);
-			}
-
-			amount = (origamount - stplyr->capsule->health);
-			amount = (amount * orblength)/origamount;
-
-			if (amount > 0)
-			{
-				INT32 t;
-
-				// Fill up the bar with blue orbs... in reverse! (yuck)
-				for (r = amount; r > 0; r--)
-				{
-					t = r;
-
-					if (r > 15) ++t;
-					if (r > 10) ++t;
-					if (r > 5)  ++t;
-
-					V_DrawScaledPatch(69 + (7*t), 144, V_PERPLAYER|V_HUDTRANS, bluestat);
-				}
+				if (!playeringame[i])
+					continue;
+				total_spherecount += players[i].spheres;
+				total_ringcount += players[i].rings;
 			}
 		}
 		else
 		{
-			INT32 cfill;
+			total_spherecount = stplyr->spheres;
+			total_ringcount = stplyr->spheres;
+		}
+
+		if (!P_MobjWasRemoved(stplyr->capsule))
+		{
+			INT32 amount;
+			const INT32 length = 88;
+
+			origamount = stplyr->capsule->spawnpoint->args[1];
+			I_Assert(origamount > 0); // should not happen now
+
+			ST_DrawTopLeftOverlayPatch(72, 8, nbracket);
+			ST_DrawTopLeftOverlayPatch(74, 8 + 4, minicaps);
+
+			if (stplyr->capsule->reactiontime != 0)
+			{
+				INT32 r;
+				const INT32 orblength = 20;
+
+				for (r = 0; r < 5; r++)
+				{
+					V_DrawScaledPatch(230 - (7*r), 144, V_PERPLAYER|V_HUDTRANS, redstat);
+					V_DrawScaledPatch(188 - (7*r), 144, V_PERPLAYER|V_HUDTRANS, orngstat);
+					V_DrawScaledPatch(146 - (7*r), 144, V_PERPLAYER|V_HUDTRANS, yelstat);
+					V_DrawScaledPatch(104 - (7*r), 144, V_PERPLAYER|V_HUDTRANS, byelstat);
+				}
+
+				amount = (origamount - stplyr->capsule->health);
+				amount = (amount * orblength)/origamount;
+
+				if (amount > 0)
+				{
+					INT32 t;
+
+					// Fill up the bar with blue orbs... in reverse! (yuck)
+					for (r = amount; r > 0; r--)
+					{
+						t = r;
+
+						if (r > 15) ++t;
+						if (r > 10) ++t;
+						if (r > 5)  ++t;
+
+						V_DrawScaledPatch(69 + (7*t), 144, V_PERPLAYER|V_HUDTRANS, bluestat);
+					}
+				}
+			}
+			else
+			{
+				INT32 cfill;
+
+				// Lil' white box!
+				V_DrawScaledPatch(15, 8 + 34, V_PERPLAYER|V_SNAPTOLEFT|V_SNAPTOTOP|V_HUDTRANS, capsulebar);
+
+				amount = (origamount - stplyr->capsule->health);
+				amount = (amount * length)/origamount;
+
+				for (cfill = 0; cfill < amount && cfill < length; ++cfill)
+					V_DrawScaledPatch(15 + cfill + 1, 8 + 35, V_PERPLAYER|V_SNAPTOLEFT|V_SNAPTOTOP|V_HUDTRANS, capsulefill);
+			}
+
+			if (total_spherecount >= stplyr->capsule->health)
+				ST_DrawTopLeftOverlayPatch(40, 8 + 5, nredar[leveltime&7]);
+			else
+				ST_DrawTopLeftOverlayPatch(40, 8 + 5, narrow[(leveltime/2)&7]);
+		}
+		else if (oldspecialstage && total_spherecount < (INT32)ssspheres)
+		{
+			INT32 cfill, amount;
+			const INT32 length = 88;
+			UINT8 em = P_GetNextEmerald();
+			ST_DrawTopLeftOverlayPatch(72, 8, nbracket);
+
+			if (em <= 7)
+				ST_DrawTopLeftOverlayPatch(80, 8 + 8, emeraldpics[0][em]);
+
+			ST_DrawTopLeftOverlayPatch(40, 8 + 5, narrow[(leveltime/2)&7]);
 
 			// Lil' white box!
 			V_DrawScaledPatch(15, 8 + 34, V_PERPLAYER|V_SNAPTOLEFT|V_SNAPTOTOP|V_HUDTRANS, capsulebar);
 
-			amount = (origamount - stplyr->capsule->health);
-			amount = (amount * length)/origamount;
+			amount = (total_spherecount * length)/ssspheres;
 
 			for (cfill = 0; cfill < amount && cfill < length; ++cfill)
 				V_DrawScaledPatch(15 + cfill + 1, 8 + 35, V_PERPLAYER|V_SNAPTOLEFT|V_SNAPTOTOP|V_HUDTRANS, capsulefill);
 		}
-
-		if (total_spherecount >= stplyr->capsule->health)
-			ST_DrawTopLeftOverlayPatch(40, 8 + 5, nredar[leveltime&7]);
 		else
-			ST_DrawTopLeftOverlayPatch(40, 8 + 5, narrow[(leveltime/2)&7]);
-	}
-	else if (oldspecialstage && total_spherecount < (INT32)ssspheres)
-	{
-		INT32 cfill, amount;
-		const INT32 length = 88;
-		UINT8 em = P_GetNextEmerald();
-		ST_DrawTopLeftOverlayPatch(72, 8, nbracket);
+			ST_DrawTopLeftOverlayPatch(40, 8 + 5, narrow[8]);
 
-		if (em <= 7)
-			ST_DrawTopLeftOverlayPatch(80, 8 + 8, emeraldpics[0][em]);
-
-		ST_DrawTopLeftOverlayPatch(40, 8 + 5, narrow[(leveltime/2)&7]);
-
-		// Lil' white box!
-		V_DrawScaledPatch(15, 8 + 34, V_PERPLAYER|V_SNAPTOLEFT|V_SNAPTOTOP|V_HUDTRANS, capsulebar);
-
-		amount = (total_spherecount * length)/ssspheres;
-
-		for (cfill = 0; cfill < amount && cfill < length; ++cfill)
-			V_DrawScaledPatch(15 + cfill + 1, 8 + 35, V_PERPLAYER|V_SNAPTOLEFT|V_SNAPTOTOP|V_HUDTRANS, capsulefill);
-	}
-	else
-		ST_DrawTopLeftOverlayPatch(40, 8 + 5, narrow[8]);
-
-	if (oldspecialstage)
-	{
-		// invert for s3k style junk
-		total_spherecount = ssspheres - total_spherecount;
-		if (total_spherecount < 0)
-			total_spherecount = 0;
-
-		if (nummaprings > 0) // don't count down if there ISN'T a valid maximum number of rings, like sonic 3
+		if (oldspecialstage)
 		{
-			total_ringcount = nummaprings - total_ringcount;
-			if (total_ringcount < 0)
-				total_ringcount = 0;
+			// invert for s3k style junk
+			total_spherecount = ssspheres - total_spherecount;
+			if (total_spherecount < 0)
+				total_spherecount = 0;
+
+			if (nummaprings > 0) // don't count down if there ISN'T a valid maximum number of rings, like sonic 3
+			{
+				total_ringcount = nummaprings - total_ringcount;
+				if (total_ringcount < 0)
+					total_ringcount = 0;
+			}
+
+			// now rings! you know, for that perfect bonus.
+			V_DrawScaledPatch(272, 8, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT|V_HUDTRANS, nbracket);
+			V_DrawScaledPatch(280, 16+1, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT|V_HUDTRANS, nring);
+			V_DrawScaledPatch(280, 8+5, V_FLIP|V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT|V_HUDTRANS, narrow[8]);
+			V_DrawTallNum(272, 8 + 11, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT|V_HUDTRANS, total_ringcount);
 		}
 
-		// now rings! you know, for that perfect bonus.
-		V_DrawScaledPatch(272, 8, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT|V_HUDTRANS, nbracket);
-		V_DrawScaledPatch(280, 16+1, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT|V_HUDTRANS, nring);
-		V_DrawScaledPatch(280, 8+5, V_FLIP|V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT|V_HUDTRANS, narrow[8]);
-		V_DrawTallNum(272, 8 + 11, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT|V_HUDTRANS, total_ringcount);
+		if (total_spherecount >= 100)
+			V_DrawTallNum((total_spherecount >= 1000) ? 76 : 72, 8 + 11, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTOLEFT|V_HUDTRANS, total_spherecount);
+		else
+			V_DrawTallNum(68, 8 + 11, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTOLEFT|V_HUDTRANS, total_spherecount);
 	}
-
-	if (total_spherecount >= 100)
-		V_DrawTallNum((total_spherecount >= 1000) ? 76 : 72, 8 + 11, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTOLEFT|V_HUDTRANS, total_spherecount);
-	else
-		V_DrawTallNum(68, 8 + 11, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTOLEFT|V_HUDTRANS, total_spherecount);
-	}
-
-	// Score
-	if (!stplyr->exiting && !oldspecialstage && LUA_HudEnabled(hud_nightsscore))
-		ST_DrawNightsOverlayNum(304<<FRACBITS, 14<<FRACBITS, FRACUNIT, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT, stplyr->marescore, nightsnum, SKINCOLOR_AZURE);
 
 	// TODO: give this its own section for Lua
 	// TODO: on multi-mare maps, show time & grade for each completed mare
-	if (!stplyr->exiting && LUA_HudEnabled(hud_nightsscore))
+	if (!stplyr->exiting && LUA_HudEnabled(hud_nightsscore)
+	&& !LUA_HudReplace(hud_nightsscore))
 	{
+		if (!oldspecialstage)
+			ST_DrawNightsOverlayNum(304<<FRACBITS, 14<<FRACBITS, FRACUNIT, V_PERPLAYER|V_SNAPTOTOP|V_SNAPTORIGHT, stplyr->marescore, nightsnum, SKINCOLOR_AZURE);
+
 		if (modeattacking == ATTACKING_NIGHTS)
 		{
 			INT32 maretime = max(stplyr->realtime - stplyr->marebegunat, 0);
@@ -2119,7 +2114,8 @@ static void ST_drawNiGHTSHUD(void)
 	}
 
 	// Ideya time remaining
-	if (!stplyr->exiting && stplyr->nightstime > 0 && LUA_HudEnabled(hud_nightstime))
+	if (!stplyr->exiting && stplyr->nightstime > 0
+	&& LUA_HudEnabled(hud_nightstime) && !LUA_HudReplace(hud_nightstime))
 	{
 		INT32 realnightstime = stplyr->nightstime/TICRATE;
 		INT32 numbersize;
@@ -2167,7 +2163,7 @@ static void ST_drawNiGHTSHUD(void)
 
 	if (oldspecialstage && LUA_HudEnabled(hud_nightsrecords))
 	{
-		if (leveltime < 5*TICRATE)
+		if (!LUA_HudReplace(hud_nightsrecords) && leveltime < 5*TICRATE)
 		{
 			INT32 aflag = V_PERPLAYER;
 			tic_t drawtime = (5*TICRATE) - leveltime;
@@ -2209,7 +2205,7 @@ static void ST_drawNiGHTSHUD(void)
 		}
 
 		// Records/extra text
-		if (LUA_HudEnabled(hud_nightsrecords))
+		if (LUA_HudEnabled(hud_nightsrecords) && !LUA_HudReplace(hud_nightsrecords))
 			ST_drawNightsRecords();
 	}
 }
@@ -2266,6 +2262,9 @@ static void ST_drawWeaponRing(powertype_t weapon, INT32 rwflag, INT32 wepflag, I
 
 static void ST_drawMatchHUD(void)
 {
+	if (LUA_HudReplace(hud_weaponrings))
+		return;
+
 	char penaltystr[7];
 	const INT32 y = 176; // HUD_LIVES
 	INT32 offset = (BASEVIDWIDTH / 2) - (NUM_WEAPONS * 10) - 6;
@@ -2322,6 +2321,9 @@ static void ST_drawTextHUD(void)
 }
 
 	if (F_GetPromptHideHud(y))
+		return;
+
+	if (LUA_HudReplace(hud_textspectator))
 		return;
 
 	if (stplyr->spectator && (!G_CoopGametype() || stplyr->playerstate == PST_LIVE))
@@ -2479,6 +2481,9 @@ static void ST_drawTeamHUD(void)
 #define SEP 20
 
 	if (F_GetPromptHideHud(0)) // y base is 0
+		return;
+
+	if (LUA_HudReplace(hud_teamscores))
 		return;
 
 	rflagico = W_CachePatchName("RFLAGICO", PU_HUDGFX);

@@ -446,6 +446,8 @@ void Y_IntermissionDrawer(void)
 
 	if (!LUA_HudEnabled(hud_intermissiontally))
 		goto skiptallydrawer;
+	if (LUA_HudReplace(hud_intermissiontally))
+		goto skiptallydrawer;
 
 	if (intertype == int_coop)
 	{
@@ -484,7 +486,8 @@ void Y_IntermissionDrawer(void)
 			}
 		}
 
-		if (LUA_HudEnabled(hud_intermissiontitletext))
+		if (LUA_HudEnabled(hud_intermissiontitletext)
+		&& !LUA_HudReplace(hud_intermissiontitletext))
 		{
 			// draw the "got through act" lines and act number
 			V_DrawLevelTitle(data.coop.passedx1, 49, 0, data.coop.passed1);
@@ -578,7 +581,8 @@ void Y_IntermissionDrawer(void)
 
 		if (drawsection == 1)
 		{
-			if (LUA_HudEnabled(hud_intermissiontitletext))
+			if (LUA_HudEnabled(hud_intermissiontitletext)
+			&& !LUA_HudReplace(hud_intermissiontitletext))
 			{
 				const char *ringtext = "\x82" "50 rings, no shield";
 				const char *tut1text = "\x82" "press " "\x80" "spin";
@@ -602,7 +606,8 @@ void Y_IntermissionDrawer(void)
 		{
 			INT32 yoffset = 0;
 
-			if (LUA_HudEnabled(hud_intermissiontitletext))
+			if (LUA_HudEnabled(hud_intermissiontitletext)
+			&& !LUA_HudReplace(hud_intermissiontitletext))
 			{
 				if (data.spec.passed1[0] != '\0')
 				{
@@ -660,7 +665,8 @@ void Y_IntermissionDrawer(void)
 		}
 
 		// draw the emeralds
-		if (LUA_HudEnabled(hud_intermissionemeralds))
+		if (LUA_HudEnabled(hud_intermissionemeralds)
+		&& !LUA_HudReplace(hud_intermissionemeralds))
 		{
 			boolean drawthistic = !(ALL7EMERALDS(emeralds) && (intertic & 1));
 			INT32 emeraldx = 152 - 3*28;
@@ -974,6 +980,8 @@ void Y_IntermissionDrawer(void)
 
 skiptallydrawer:
 	if (!LUA_HudEnabled(hud_intermissionmessages))
+		return;
+	if (LUA_HudReplace(hud_intermissionmessages))
 		return;
 
 	if (timer)

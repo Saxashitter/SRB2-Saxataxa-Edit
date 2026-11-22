@@ -11,6 +11,7 @@
 /// \brief custom HUD rendering library for Lua scripting
 
 #include "doomdef.h"
+#include "console.h"
 #include "fastcmp.h"
 #include "r_defs.h"
 #include "r_local.h"
@@ -36,7 +37,7 @@
 boolean hud_running = false;
 static UINT8 hud_enabled[(hud_MAX/8)+1];
 static UINT8 hud_replaced[(hud_MAX/8)+1];
-int hud_replace_refs[hud_MAX];
+static int hud_replace_refs[hud_MAX];
 
 // must match enum hud in lua_hud.h
 static const char *const hud_disable_options[] = {
@@ -1456,11 +1457,13 @@ static int lib_hudreplace(lua_State *L)
 	enum hud option = luaL_checkoption(L, 1, NULL, hud_disable_options);
 	luaL_checktype(L, 2, LUA_TFUNCTION);
 
+	if (hud_replaced[option/8] & (1<<(option%8)))
+		luaL_unref(L, LUA_REGISTRYINDEX, hud_replace_refs[option]);
+
 	lua_pushvalue(L, 2);
 
 	hud_replace_refs[option] = luaL_ref(L, LUA_REGISTRYINDEX);
 	hud_replaced[option/8] |= 1<<(option%8);
-	CONS_Printf("replaced a hook\n");
 
 	// add_hud_hook(L, 2);
 	// add_hook_ref(L, 1);
@@ -1514,11 +1517,33 @@ boolean LUA_HudEnabled(enum hud option)
 	return false;
 }
 
-boolean LUA_HudReplaced(enum hud option)
+boolean LUA_HudReplace(enum hud option)
 {
-	if (gL && hud_replaced[option/8] & (1<<(option%8)))
-		return true;
-	return false;
+	lua_State *L = gL;
+	boolean replaced;
+
+	if (!L || !(hud_enabled[option/8] & (1<<(option%8)))
+	|| !(hud_replaced[option/8] & (1<<(option%8))))
+		return false;
+
+	lua_getref(L, hud_replace_refs[option]);
+	lua_getref(L, lib_draw_ref);
+	lua_pushlightuserdata(L, NULL);
+	lua_setfield(L, LUA_REGISTRYINDEX, "HUD_DRAW_LIST");
+
+	hud_running = true;
+	if (lua_pcall(L, 1, 1, 0) != 0)
+	{
+		CONS_Alert(CONS_WARNING, "%s\n", lua_tostring(L, -1));
+		lua_pop(L, 1);
+		hud_running = false;
+		return false;
+	}
+
+	replaced = lua_toboolean(L, -1);
+	lua_pop(L, 1);
+	hud_running = false;
+	return replaced;
 }
 
 void LUA_SetHudHook(int hook, huddrawlist_h list)

@@ -51,10 +51,9 @@ enum hud {
 };
 
 extern boolean hud_running;
-extern int hud_replace_refs[hud_MAX];
 
 boolean LUA_HudEnabled(enum hud option);
-boolean LUA_HudReplaced(enum hud option);
+boolean LUA_HudReplace(enum hud option);
 
 void LUA_SetHudHook(int hook, huddrawlist_h list);
 
