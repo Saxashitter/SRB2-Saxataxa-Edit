@@ -53,6 +53,7 @@ enum hud {
 extern boolean hud_running;
 
 boolean LUA_HudEnabled(enum hud option);
+boolean LUA_HudReplace(enum hud option);
 
 void LUA_SetHudHook(int hook, huddrawlist_h list);
 
