@@ -43,6 +43,7 @@
 #endif
 
 #include "lua_hud.h"
+#include "lua_libs.h"
 #include "lua_hudlib_drawlist.h"
 #include "lua_hook.h"
 
@@ -796,6 +797,33 @@ static void ST_drawTime(void)
 static inline void ST_drawRings(void)
 {
 	INT32 ringnum;
+
+	if (gL && LUA_HudReplaced(hud_rings))
+	{
+		lua_State *L = gL;
+		boolean replaced;
+
+		lua_getref(L, hud_replace_refs[hud_rings]);
+		LUA_SetHudHook(HUD_HOOK(game), NULL);
+		lua_pop(L, 2);
+
+		hud_running = true;
+		if (lua_pcall(L, 1, 1, 0) == 0)
+		{
+			replaced = lua_toboolean(L, -1);
+			lua_pop(L, 1);
+			hud_running = false;
+	
+			if (replaced)
+				return;
+		}
+		else
+		{
+			CONS_Alert(CONS_WARNING, "%s\n", lua_tostring(L, -1));
+			lua_pop(L, 1);
+			hud_running = false;
+		}
+	}
 
 	if (F_GetPromptHideHud(hudinfo[HUD_RINGS].y))
 		return;
