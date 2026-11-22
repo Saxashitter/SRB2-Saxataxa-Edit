@@ -798,7 +798,7 @@ static inline void ST_drawRings(void)
 {
 	INT32 ringnum;
 
-	if (gL && LUA_HudReplaced(hud_rings))
+	if (LUA_HudReplaced(hud_rings))
 	{
 		lua_State *L = gL;
 		boolean replaced;
